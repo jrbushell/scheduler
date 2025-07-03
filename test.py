@@ -15,6 +15,9 @@ import sys
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+UNAVAILABLE = 0
+BEST_CHOICE = 10
+
 people = []
 timeslots = []
 data = []
@@ -27,15 +30,8 @@ with open(sys.argv[1]) as csvfile:
             timeslots.append(row[0])
             data.append(row[1:])
 
-# print(timeslots)
-# print(people)
-
 spare = len(timeslots) - len(people)
 assert spare >= 0, "There are more people than timeslots!"
-
-# For solving the matrix, flip the values so that 0 is best and 10 is worst
-UNAVAILABLE = 10
-BEST_CHOICE = 0
 
 # Initialise matrix by setting
 # - all real timeslots => UNAVAILABLE
@@ -45,17 +41,22 @@ constraints = [
     for _ in range(len(timeslots))
 ]
 
-# print(constraints)
-
 # Set availability in matrix
 for t in range(len(timeslots)):
     for p in range(len(people)):
         if data[t][p]:
-            val = int(data[t][p])
-            assert BEST_CHOICE <= val <= UNAVAILABLE, f"Data for {people[p]} at {timeslots[t]} is invalid"
-            constraints[t][p] -= val
+            try:
+                val = int(data[t][p])
+                assert UNAVAILABLE <= val <= BEST_CHOICE
+            except (ValueError, AssertionError):
+                print(f"ERROR: Data for {people[p]} at {timeslots[t]} is invalid")
+                sys.exit(1)
+            constraints[t][p] = val
 
-# print(constraints)
+# For solving the matrix, flip the values so that lowest is best
+for t in range(len(timeslots)):
+    for p in range(len(timeslots)):
+        constraints[t][p] = BEST_CHOICE - constraints[t][p]
 
 # Solve the matrix
 cost = np.array(constraints)
