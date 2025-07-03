@@ -3,6 +3,12 @@
 #
 # Maybe also
 # https://docs.google.com/spreadsheets/d/0B4IcqARhSzjrUkhRcDVJM2lSaGs/edit?resourcekey=0-snG31ABO-xuU7LWgo1fl8Q&gid=994695874#gid=994695874
+#
+# CSV values must be in the range 0-10
+# - 0 = unavailable
+# - 10 = best
+# - anything from 1-9 is different levels of "maybe"
+# - empty cell is the same as 0
 
 import csv
 import sys
@@ -25,39 +31,37 @@ with open(sys.argv[1]) as csvfile:
 # print(people)
 
 spare = len(timeslots) - len(people)
-assert spare >= 0
+assert spare >= 0, "There are more people than timeslots!"
 
-# 0 = available
-# 1 = unavailable
+# For solving the matrix, flip the values so that 0 is best and 10 is worst
+UNAVAILABLE = 10
+BEST_CHOICE = 0
+
+# Initialise matrix by setting
+# - all real timeslots => UNAVAILABLE
+# - all dummy timeslots => BEST_CHOICE
 constraints = [
-    [1 for _ in range(len(people))] + [0 for _ in range(spare) ]
+    [UNAVAILABLE for _ in range(len(people))] + [BEST_CHOICE for _ in range(spare) ]
     for _ in range(len(timeslots))
 ]
 
 # print(constraints)
 
+# Set availability in matrix
 for t in range(len(timeslots)):
     for p in range(len(people)):
-        if bool(data[t][p]):
-            constraints[t][p] = 0
+        if data[t][p]:
+            val = int(data[t][p])
+            assert BEST_CHOICE <= val <= UNAVAILABLE, f"Data for {people[p]} at {timeslots[t]} is invalid"
+            constraints[t][p] -= val
 
 # print(constraints)
 
-# assert constraints == [
-#     [1,0,1,0,0,0],
-#     [1,1,0,1,0,0],
-#     [1,0,1,1,0,0],
-#     [0,1,1,0,0,0],
-#     [1,0,0,1,0,0],
-#     [1,1,0,1,0,0]
-# ]
-
+# Solve the matrix
 cost = np.array(constraints)
 row_indexes, col_indexes = linear_sum_assignment(cost)
 
-# for i in range(len(row_indexes)):
-#     print(row_indexes[i], col_indexes[i])
-#
+# Print the timetable
 for i, col_index in enumerate(col_indexes):
     timeslot = timeslots[i]
     person = people[col_index] if col_index < len(people) else None
